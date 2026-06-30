@@ -20,7 +20,6 @@ Das Plugin dient ausschließlich dem Kontoinformationsabruf. Überweisungen werd
 
 Welche Banken und Kontotypen verfügbar sind, hängt von Enable Banking und dem jeweiligen Kreditinstitut ab. Eine aktuelle Übersicht bietet Enable Banking unter [Open Banking APIs](https://enablebanking.com/open-banking-apis).
 
-Der Dateiname des Schlüssels muss der Application-ID entsprechen, zum Beispiel `18977c78-a7e5-4462-9ffa-9bfbcef29127.pem`.
 
 ## Installation über den Jameica-Plugin-Manager
 
@@ -32,14 +31,9 @@ Der Dateiname des Schlüssels muss der Application-ID entsprechen, zum Beispiel 
 
 Nach dem Neustart steht in Jameica das Menü **PSD2** zur Verfügung.
 
-## Enable Banking vorbereiten
+Über den Menüpunkt "PEM-Datei importieren..." kann ein
+Einrichtungs-Assistent gestartet werden.
 
-1. Im [Enable-Banking-Control-Panel](https://enablebanking.com/cp/) eine Anwendung anlegen.
-2. Als Redirect-URL `https://127.0.0.1:18443/callback` registrieren.
-3. Über den Button **Link Accounts** alle Konten hinzufügen, auf die später mit Hibiscus zugegriffen werden soll. Enable Banking beschreibt den Ablauf in der Dokumentation zu [Linked Accounts](https://enablebanking.com/docs/api/linked-accounts).
-4. Den privaten Anwendungsschlüssel herunterladen. (Die Datei darf nicht umbenannt werden und muss der Application-ID entsprechen).
-
-Die Redirect-URL muss im Control Panel exakt mit der im Plugin konfigurierten URL übereinstimmen. Der lokale Callback-Server lauscht ausschließlich auf der Loopback-Schnittstelle. Wegen des lokal erzeugten, selbstsignierten HTTPS-Zertifikats kann der Browser beim ersten Aufruf eine Zertifikatswarnung anzeigen.
 
 ## Bankverbindung einrichten
 
