@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin xmlns="http://www.willuhn.de/schema/jameica-plugin"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.willuhn.de/schema/jameica-plugin https://www.willuhn.de/schema/jameica-plugin-1.5.xsd"
+        name="hibiscus.ly.PSD2" version="0.1.0" class="de.open4me.hibiscus.psd2.Plugin">
+
+  <description>Hibiscus-Plugin fuer PSD2-Kontozugriffe ueber Enable Banking</description>
+  <license>GPL-3.0</license>
+
+  <requires jameica="2.11.0+">
+    <import plugin="hibiscus" version="2.11.0+" />
+  </requires>
+
+  <menu>
+    <item id="hibiscus.ly.psd2.menu" name="PSD2">
+      <item id="hibiscus.ly.psd2.pem" name="PEM-Datei importieren..." action="de.open4me.hibiscus.psd2.ui.ImportPemAction" />
+      <item name="-" />
+      <item id="hibiscus.ly.psd2.connect" name="Neue Bankverbindung..." enabled="false" action="de.open4me.hibiscus.psd2.ui.NewConnectionAction" />
+      <item id="hibiscus.ly.psd2.manage" name="Verbindungen verwalten..." enabled="false" action="de.open4me.hibiscus.psd2.ui.ManageConnectionsAction" />
+      <item name="-" />
+      <item id="hibiscus.ly.psd2.expert-settings" name="Experteneinstellungen ..." action="de.open4me.hibiscus.psd2.ui.ExpertSettingsAction" />
+    </item>
+  </menu>
+
+  <classfinder>
+    <include>hibiscus\.ly\.PSD2\.jar</include>
+    <include>.*\.class</include>
+  </classfinder>
+</plugin>
