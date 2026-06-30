@@ -1,10 +1,8 @@
 package de.open4me.hibiscus.psd2.ui;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
 import de.open4me.hibiscus.psd2.model.Aspsp;
@@ -19,33 +17,9 @@ final class SelectionSupport
     {
     }
 
-    static String chooseCountry(List<Aspsp> aspsps) throws Exception
-    {
-        List<CountryOption> countries = aspsps.stream()
-                .map(aspsp -> aspsp.country)
-                .filter(country -> country != null && !country.isBlank())
-                .distinct()
-                .map(CountryOption::new)
-                .sorted(Comparator.comparing(CountryOption::label))
-                .toList();
-        CountryOption germany = countries.stream()
-                .filter(country -> "DE".equals(country.code))
-                .findFirst()
-                .orElse(countries.isEmpty() ? null : countries.get(0));
-        if (germany == null)
-            return null;
-        CountryOption selected = new ChoiceDialog<>(
-                "Land auswaehlen", "Land", countries, germany).open();
-        return selected == null ? null : selected.code;
-    }
-
     static Aspsp chooseAspsp(List<Aspsp> aspsps) throws Exception
     {
-        ListDialog dialog = new ListDialog(aspsps, AbstractDialog.POSITION_CENTER);
-        dialog.setTitle("ASPSP auswaehlen");
-        dialog.addColumn("Land", "country");
-        dialog.addColumn("Institut", "name");
-        return (Aspsp) dialog.open();
+        return new AspspSelectionDialog(aspsps).open();
     }
 
     static String choosePsuType(Aspsp aspsp) throws Exception
@@ -74,32 +48,38 @@ final class SelectionSupport
         return selected == null ? null : selected.value;
     }
 
-    static Konto chooseAccount(List<Konto> accounts, String iban) throws Exception
+    static AccountSelectionDialog.Result chooseAccount(List<Konto> accounts, String iban) throws Exception
     {
-        ListDialog dialog = new ListDialog(accounts, AbstractDialog.POSITION_CENTER);
-        dialog.setTitle("Hibiscus-Konto fuer " + (iban == null || iban.isBlank() ? "PSD2-Konto" : iban) + " auswaehlen");
-        dialog.addColumn("Bezeichnung", "bezeichnung");
-        dialog.addColumn("Konto", "longName");
-        dialog.addColumn("IBAN", "iban");
-        return (Konto) dialog.open();
+        return new AccountSelectionDialog(accounts, iban).open();
     }
 
-    static String chooseAuthMethod(Aspsp aspsp, String psuType) throws Exception
+    static AuthMethodSelection chooseAuthMethod(Aspsp aspsp, String psuType) throws Exception
     {
-        List<AuthMethod> methods = aspsp.authMethods.stream()
-                .filter(method -> psuType.equals(method.psuType))
-                .filter(method -> !method.hidden || method.name != null)
-                .toList();
+        List<AuthMethod> methods = selectableAuthMethods(aspsp, psuType);
         if (methods.isEmpty())
-            return null;
+            return new AuthMethodSelection(null, false);
         if (methods.size() == 1)
-            return methods.get(0).name;
+            return new AuthMethodSelection(methods.get(0).name, false);
         ListDialog dialog = new ListDialog(methods, AbstractDialog.POSITION_CENTER);
         dialog.setTitle("Authentifizierungsmethode auswaehlen");
         dialog.addColumn("Methode", "title");
         dialog.addColumn("Verfahren", "approach");
         AuthMethod selected = (AuthMethod) dialog.open();
-        return selected == null ? null : selected.name;
+        return selected == null
+                ? new AuthMethodSelection(null, true)
+                : new AuthMethodSelection(selected.name, false);
+    }
+
+    static List<AuthMethod> selectableAuthMethods(Aspsp aspsp, String psuType)
+    {
+        return aspsp.authMethods.stream()
+                .filter(method -> psuType.equals(method.psuType))
+                .filter(method -> !method.hidden)
+                .toList();
+    }
+
+    record AuthMethodSelection(String name, boolean cancelled)
+    {
     }
 
     private static final class PsuTypeOption
@@ -123,25 +103,4 @@ final class SelectionSupport
         }
     }
 
-    private static final class CountryOption
-    {
-        private final String code;
-
-        private CountryOption(String code)
-        {
-            this.code = code;
-        }
-
-        private String label()
-        {
-            String name = new Locale("", code).getDisplayCountry(Locale.GERMAN);
-            return name == null || name.isBlank() ? code : name + " (" + code + ")";
-        }
-
-        @Override
-        public String toString()
-        {
-            return label();
-        }
-    }
 }

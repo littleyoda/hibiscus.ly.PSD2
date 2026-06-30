@@ -36,9 +36,9 @@ public final class Psd2Config
         settings().setAttribute("callback.url", value == null ? DEFAULT_CALLBACK_URL : value.trim());
     }
 
-    public static int getInitialHistoryDays()
+    public static int getInitialHistoryYears()
     {
-        return settings().getInt("transactions.initial.days", 90);
+        return settings().getInt("transactions.initial.years", 5);
     }
 
     public static boolean isTransactionDebugExportEnabled()

@@ -7,9 +7,9 @@ import de.willuhn.jameica.messaging.SystemMessage;
 public class Psd2MenuStateInitializer implements MessageConsumer
 {
     @Override
-    public Class[] getExpectedMessageTypes()
+    public Class<?>[] getExpectedMessageTypes()
     {
-        return new Class[] { SystemMessage.class };
+        return new Class<?>[] { SystemMessage.class };
     }
 
     @Override

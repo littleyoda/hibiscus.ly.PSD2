@@ -33,7 +33,7 @@ final class TransactionDebugExporter
     {
     }
 
-    static void saveIfEnabled(Konto konto, LocalDate dateFrom, List<JsonNode> pages)
+    static void saveIfEnabled(Konto konto, LocalDate dateFrom, JsonNode balances, List<JsonNode> transactionPages)
     {
         if (!Psd2Config.isTransactionDebugExportEnabled())
             return;
@@ -44,25 +44,37 @@ final class TransactionDebugExporter
             if (filename == null)
                 return;
 
-            ObjectNode document = MAPPER.createObjectNode();
-            document.put("retrieved_at", Instant.now().toString());
-            document.put("date_from", dateFrom.toString());
-            document.put("hibiscus_account", konto.getBezeichnung());
-            ArrayNode responses = document.putArray("responses");
-            pages.forEach(page -> responses.add(page.deepCopy()));
+            ObjectNode document = createDocument(
+                    konto.getBezeichnung(), dateFrom, balances, transactionPages, Instant.now());
             Files.writeString(Path.of(filename),
                     MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(document),
                     StandardCharsets.UTF_8);
             Application.getMessagingFactory().sendMessage(new StatusBarMessage(
-                    "Transaktions-JSON gespeichert: " + filename, StatusBarMessage.TYPE_INFO));
+                    "PSD2-Debug-JSON gespeichert: " + filename, StatusBarMessage.TYPE_INFO));
         }
         catch (Exception e)
         {
-            Logger.error("Transaktions-JSON konnte nicht gespeichert werden", e);
+            Logger.error("PSD2-Debug-JSON konnte nicht gespeichert werden", e);
             Application.getMessagingFactory().sendMessage(new StatusBarMessage(
-                    "Transaktions-JSON konnte nicht gespeichert werden: " + e.getMessage(),
+                    "PSD2-Debug-JSON konnte nicht gespeichert werden: " + e.getMessage(),
                     StatusBarMessage.TYPE_ERROR));
         }
+    }
+
+    static ObjectNode createDocument(String accountDescription, LocalDate dateFrom, JsonNode balances,
+            List<JsonNode> transactionPages, Instant retrievedAt)
+    {
+        ObjectNode document = MAPPER.createObjectNode();
+        document.put("retrieved_at", retrievedAt.toString());
+        document.put("date_from", dateFrom.toString());
+        document.put("hibiscus_account", accountDescription);
+        if (balances == null)
+            document.putNull("balances");
+        else
+            document.set("balances", balances.deepCopy());
+        ArrayNode transactions = document.putArray("transactions");
+        transactionPages.forEach(page -> transactions.add(page.deepCopy()));
+        return document;
     }
 
     private static String chooseFilename()
@@ -70,10 +82,10 @@ final class TransactionDebugExporter
         String[] filename = { null };
         GUI.getDisplay().syncExec(() -> {
             FileDialog dialog = new FileDialog(GUI.getShell(), SWT.SAVE);
-            dialog.setText("Enable-Banking-Transaktionen als JSON speichern");
+            dialog.setText("Enable-Banking-Debugdaten als JSON speichern");
             dialog.setFilterExtensions(new String[] { "*.json", "*" });
             dialog.setFilterNames(new String[] { "JSON-Dateien", "Alle Dateien" });
-            dialog.setFileName("enablebanking-transactions-"
+            dialog.setFileName("enablebanking-debug-"
                     + FILE_TIMESTAMP.format(LocalDateTime.now()) + ".json");
             dialog.setOverwrite(true);
             filename[0] = dialog.open();

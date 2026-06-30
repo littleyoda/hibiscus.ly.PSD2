@@ -11,8 +11,12 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.BooleanSupplier;
 
 import javax.net.ssl.SSLContext;
 
@@ -26,6 +30,7 @@ public final class CallbackServer implements AutoCloseable
     private final String expectedState;
     private final CompletableFuture<CallbackResult> result = new CompletableFuture<>();
     private final HttpsServer server;
+    private final ExecutorService executor;
 
     public CallbackServer(String callbackUrl, String expectedState, SSLContext sslContext) throws Exception
     {
@@ -38,11 +43,12 @@ public final class CallbackServer implements AutoCloseable
         int port = callbackUri.getPort() > 0 ? callbackUri.getPort() : 443;
         this.server = HttpsServer.create(new InetSocketAddress(address, port), 0);
         this.server.setHttpsConfigurator(new HttpsConfigurator(sslContext));
-        this.server.setExecutor(Executors.newSingleThreadExecutor(runnable -> {
+        this.executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "PSD2 callback");
             thread.setDaemon(true);
             return thread;
-        }));
+        });
+        this.server.setExecutor(executor);
         this.server.createContext(callbackUri.getPath(), this::handle);
     }
 
@@ -53,7 +59,29 @@ public final class CallbackServer implements AutoCloseable
 
     public CallbackResult await(Duration timeout) throws Exception
     {
-        return result.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        return await(timeout, () -> false);
+    }
+
+    public CallbackResult await(Duration timeout, BooleanSupplier cancelled) throws Exception
+    {
+        long deadline = System.nanoTime() + timeout.toNanos();
+        while (true)
+        {
+            if (cancelled.getAsBoolean())
+                throw new CancellationException("Autorisierung wurde abgebrochen");
+            long remaining = deadline - System.nanoTime();
+            if (remaining <= 0)
+                throw new TimeoutException("Zeitlimit fuer die Bankautorisierung ueberschritten");
+            try
+            {
+                long waitMillis = Math.max(1, Math.min(TimeUnit.NANOSECONDS.toMillis(remaining), 250));
+                return result.get(waitMillis, TimeUnit.MILLISECONDS);
+            }
+            catch (TimeoutException e)
+            {
+                // Poll cancellation until the overall timeout has elapsed.
+            }
+        }
     }
 
     private void handle(HttpExchange exchange) throws IOException
@@ -105,6 +133,7 @@ public final class CallbackServer implements AutoCloseable
     {
         server.stop(0);
         result.cancel(false);
+        executor.shutdownNow();
     }
 
     private static void validateUri(URI uri)

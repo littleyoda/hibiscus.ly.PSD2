@@ -4,6 +4,8 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
+import java.util.function.BooleanSupplier;
 
 import org.eclipse.swt.program.Program;
 
@@ -27,24 +29,33 @@ public class AuthorizationService
 
     public AuthorizationResult authorize(Aspsp aspsp, String psuType, String authMethod, String existingId) throws Exception
     {
+        return authorize(aspsp, psuType, authMethod, existingId, () -> false);
+    }
+
+    public AuthorizationResult authorize(Aspsp aspsp, String psuType, String authMethod, String existingId,
+            BooleanSupplier cancelled) throws Exception
+    {
         SecretStore secrets = Psd2Runtime.secrets();
         EnableBankingClient client = Psd2Runtime.client();
         String callbackUrl = Psd2Config.getCallbackUrl();
         String state = randomState();
         CallbackCertificateStore certificateStore = new CallbackCertificateStore(secrets);
 
-        try (CallbackServer callback = new CallbackServer(
-                callbackUrl, state, certificateStore.createSslContext()))
+        JsonNode session = null;
+        try (CallbackServer callback = new CallbackServer(callbackUrl, state, certificateStore.createSslContext()))
         {
+            checkCancelled(cancelled);
             callback.start();
             JsonNode authorization = client.startAuthorization(aspsp, psuType, authMethod, state, callbackUrl);
+            checkCancelled(cancelled);
             openBrowser(authorization.path("url").asText());
-            CallbackResult returned = callback.await(Duration.ofMinutes(10));
+            CallbackResult returned = callback.await(Duration.ofMinutes(10), cancelled);
             if (!returned.isSuccessful())
                 throw new ApplicationException("Bankautorisierung fehlgeschlagen: "
                         + (returned.errorDescription() == null ? returned.error() : returned.errorDescription()));
 
-            JsonNode session = client.authorizeSession(returned.code());
+            session = client.authorizeSession(returned.code());
+            checkCancelled(cancelled);
             ConnectionState connection = new ConnectionState();
             connection.id = existingId == null ? UUID.randomUUID().toString() : existingId;
             connection.aspspName = aspsp.name;
@@ -52,6 +63,8 @@ public class AuthorizationService
             connection.psuType = psuType;
             connection.authMethod = authMethod;
             connection.sessionId = session.path("session_id").asText();
+            if (connection.sessionId.isBlank())
+                throw new ApplicationException("Enable Banking hat keine Session-ID geliefert.");
             connection.validUntil = session.path("access").path("valid_until").asText();
             for (JsonNode account : session.path("accounts"))
             {
@@ -63,6 +76,33 @@ public class AuthorizationService
             secrets.saveConnection(connection);
             return new AuthorizationResult(connection, session.path("accounts"));
         }
+        catch (Exception failure)
+        {
+            if (session != null)
+            {
+                String sessionId = session.path("session_id").asText();
+                if (!sessionId.isBlank())
+                {
+                    try
+                    {
+                        client.deleteSession(sessionId);
+                    }
+                    catch (Exception cleanup)
+                    {
+                        failure.addSuppressed(cleanup);
+                    }
+                }
+            }
+            if (failure instanceof CancellationException)
+                throw new ApplicationException("Einrichtung wurde abgebrochen.", failure);
+            throw failure;
+        }
+    }
+
+    private static void checkCancelled(BooleanSupplier cancelled) throws ApplicationException
+    {
+        if (cancelled.getAsBoolean())
+            throw new ApplicationException("Einrichtung wurde abgebrochen.");
     }
 
     private static void openBrowser(String url) throws ApplicationException

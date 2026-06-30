@@ -24,6 +24,24 @@ import de.open4me.hibiscus.psd2.model.AuthMethod;
 
 public class EnableBankingClient
 {
+    public enum TransactionStrategy
+    {
+        DEFAULT("default"),
+        LONGEST("longest");
+
+        private final String queryValue;
+
+        TransactionStrategy(String queryValue)
+        {
+            this.queryValue = queryValue;
+        }
+
+        public String queryValue()
+        {
+            return queryValue;
+        }
+    }
+
     public static final String API_ORIGIN = "https://api.enablebanking.com";
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -114,9 +132,9 @@ public class EnableBankingClient
         return request("GET", "/sessions/" + path(sessionId), null);
     }
 
-    public JsonNode getAccountDetails(String accountUid) throws Exception
+    public void deleteSession(String sessionId) throws Exception
     {
-        return request("GET", "/accounts/" + path(accountUid) + "/details", null);
+        request("DELETE", "/sessions/" + path(sessionId), null);
     }
 
     public JsonNode getBalances(String accountUid) throws Exception
@@ -124,11 +142,12 @@ public class EnableBankingClient
         return request("GET", "/accounts/" + path(accountUid) + "/balances", null);
     }
 
-    public JsonNode getTransactions(String accountUid, String dateFrom, String continuationKey)
-            throws Exception
+    public JsonNode getTransactions(String accountUid, String dateFrom, String continuationKey,
+            TransactionStrategy strategy) throws Exception
     {
         StringBuilder endpoint = new StringBuilder("/accounts/").append(path(accountUid)).append("/transactions");
         endpoint.append("?date_from=").append(query(dateFrom));
+        endpoint.append("&strategy=").append(query(strategy.queryValue()));
         if (continuationKey != null && !continuationKey.isBlank())
             endpoint.append("&continuation_key=").append(query(continuationKey));
         return request("GET", endpoint.toString(), null);
@@ -141,7 +160,7 @@ public class EnableBankingClient
                 .timeout(Duration.ofSeconds(90))
                 .header("Accept", "application/json")
                 .header("Authorization", "Bearer " + jwt)
-                .header("User-Agent", "hibiscus.ly.PSD2/0.1.0");
+                .header("User-Agent", userAgent());
         if (body == null)
             builder.method(method, HttpRequest.BodyPublishers.noBody());
         else
@@ -149,17 +168,35 @@ public class EnableBankingClient
                     .method(method, HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(body)));
 
         HttpResponse<String> response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
-        JsonNode json = response.body() == null || response.body().isBlank()
-                ? MAPPER.createObjectNode()
-                : MAPPER.readTree(response.body());
+        JsonNode json;
+        try
+        {
+            json = response.body() == null || response.body().isBlank()
+                    ? MAPPER.createObjectNode()
+                    : MAPPER.readTree(response.body());
+        }
+        catch (Exception parseError)
+        {
+            if (response.statusCode() >= 200 && response.statusCode() < 300)
+                throw parseError;
+            json = MAPPER.createObjectNode();
+        }
         if (response.statusCode() < 200 || response.statusCode() >= 300)
         {
             String code = json.path("error").asText(json.path("code").asText("HTTP_ERROR"));
-            String message = json.path("message").asText(json.path("detail").asText(response.body()));
+            String detail = json.path("detail").isValueNode()
+                    ? json.path("detail").asText() : json.path("detail").toString();
+            String message = json.path("message").asText(detail.isBlank() ? response.body() : detail);
             throw new EnableBankingException(response.statusCode(), code,
                     "Enable Banking: " + code + (message == null || message.isBlank() ? "" : " - " + message));
         }
         return json;
+    }
+
+    private static String userAgent()
+    {
+        String version = EnableBankingClient.class.getPackage().getImplementationVersion();
+        return "hibiscus.ly.PSD2/" + (version == null || version.isBlank() ? "development" : version);
     }
 
     private static String path(String value)

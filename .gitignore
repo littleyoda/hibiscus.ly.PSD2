@@ -1,0 +1,7 @@
+build-output/
+dist/
+releases/**/*.zip*
+
+Balances.*
+.~lock.*#
+*~

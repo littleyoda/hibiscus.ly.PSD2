@@ -21,6 +21,8 @@ public class Psd2SynchronizeBackend extends AbstractSynchronizeBackend<Psd2JobPr
     public static final String META_ACCOUNT_UID = "PSD2-Konto-UID";
     public static final String META_LAST_TRANSACTION_SYNC = "PSD2-Letzter-Umsatzabruf";
     public static final String META_TRANSACTION_IMPORT_VERSION = "PSD2-Umsatzimport-Version";
+    public static final String META_RATE_LIMIT_UNTIL = "PSD2-Abrufsperre-bis";
+    public static final String META_HISTORY_RESET_HANDLED = "PSD2-Saldodatum-Reset-verarbeitet";
 
     @Resource
     private SynchronizeEngine engine;
@@ -76,7 +78,7 @@ public class Psd2SynchronizeBackend extends AbstractSynchronizeBackend<Psd2JobPr
             for (SynchronizeJob job : jobs)
             {
                 checkInterrupted();
-                ((Psd2SynchronizeJob) job).execute(worker.getMonitor());
+                ((Psd2SynchronizeJob) job).execute(worker.getMonitor(), () -> worker.isInterrupted());
             }
         }
     }

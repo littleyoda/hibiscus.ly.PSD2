@@ -32,4 +32,13 @@ public class ConnectionState
     {
         return validUntil;
     }
+
+    public void replaceAccountUids(Map<String, String> accounts)
+    {
+        if (accountUids == null)
+            accountUids = new LinkedHashMap<>();
+        else
+            accountUids.clear();
+        accountUids.putAll(accounts);
+    }
 }

@@ -43,6 +43,7 @@ public class Psd2SynchronizeJobProvider implements Psd2JobProvider
     }
 
     @Override
+    @SuppressWarnings("rawtypes")
     public boolean supports(Class type, Konto konto)
     {
         try

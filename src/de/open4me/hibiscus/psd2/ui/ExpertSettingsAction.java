@@ -21,7 +21,8 @@ public class ExpertSettingsAction implements Action
         }
         catch (Exception e)
         {
-            throw new ApplicationException("Experteneinstellungen konnten nicht gespeichert werden: " + e.getMessage());
+            throw new ApplicationException("Experteneinstellungen konnten nicht gespeichert werden: "
+                    + e.getMessage(), e);
         }
     }
 }

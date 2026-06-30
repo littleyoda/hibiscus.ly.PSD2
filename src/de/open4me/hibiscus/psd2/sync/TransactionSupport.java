@@ -3,6 +3,7 @@ package de.open4me.hibiscus.psd2.sync;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
@@ -46,6 +47,51 @@ public final class TransactionSupport
         {
             throw new IllegalStateException(e);
         }
+    }
+
+    public static String duplicateId(String baseId, JsonNode transaction, int occurrence)
+    {
+        String source = String.join("|",
+                baseId,
+                Integer.toString(occurrence),
+                transaction.path("booking_date").asText(),
+                transaction.path("value_date").asText(),
+                transaction.path("transaction_date").asText(),
+                transaction.path("transaction_amount").path("amount").asText(),
+                transaction.path("transaction_amount").path("currency").asText(),
+                transaction.path("credit_debit_indicator").asText(),
+                purpose(transaction),
+                counterpartyName(transaction),
+                counterpartyIban(transaction));
+        try
+        {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(source.getBytes(StandardCharsets.UTF_8));
+            return "PSD2:" + HexFormat.of().formatHex(digest);
+        }
+        catch (Exception e)
+        {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    public static LocalDate startDate(LocalDate today, int initialHistoryYears, int overlapDays,
+            boolean fullHistoryRequested, boolean importVersionCurrent, String lastSync)
+    {
+        if (useLongestStrategy(fullHistoryRequested, importVersionCurrent, lastSync))
+            return today.minusYears(initialHistoryYears);
+        return LocalDate.parse(lastSync).minusDays(overlapDays);
+    }
+
+    public static boolean useLongestStrategy(boolean fullHistoryRequested, boolean importVersionCurrent,
+            String lastSync)
+    {
+        return fullHistoryRequested || !importVersionCurrent || lastSync == null || lastSync.isBlank();
+    }
+
+    public static String continuationKey(JsonNode page)
+    {
+        String continuation = page.path("continuation_key").asText(null);
+        return continuation == null || continuation.isBlank() ? null : continuation;
     }
 
     public static String purpose(JsonNode transaction)

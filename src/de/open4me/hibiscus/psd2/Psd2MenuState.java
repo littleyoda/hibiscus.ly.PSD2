@@ -56,7 +56,7 @@ public final class Psd2MenuState
         if (PROTECTED_ITEMS.contains(item.getID()))
             item.setEnabled(enabled, false);
 
-        GenericIterator children = item.getChildren();
+        GenericIterator<?> children = item.getChildren();
         while (children != null && children.hasNext())
             update((Item) children.next(), enabled);
     }

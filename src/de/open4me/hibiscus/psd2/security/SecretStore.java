@@ -36,6 +36,11 @@ public final class SecretStore
         return wallet.get(PRIVATE_KEY) != null;
     }
 
+    public void deletePrivateKey() throws Exception
+    {
+        wallet.delete(PRIVATE_KEY);
+    }
+
     public PrivateKey getPrivateKey() throws Exception
     {
         String encoded = (String) wallet.get(PRIVATE_KEY);

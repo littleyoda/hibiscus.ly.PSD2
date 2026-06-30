@@ -22,7 +22,7 @@ public class RegenerateCertificateAction implements Action
         }
         catch (Exception e)
         {
-            throw new ApplicationException("Zertifikat konnte nicht erneuert werden: " + e.getMessage());
+            throw new ApplicationException("Zertifikat konnte nicht erneuert werden: " + e.getMessage(), e);
         }
     }
 }

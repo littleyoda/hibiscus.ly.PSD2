@@ -34,7 +34,7 @@ final class ExpertSettingsDialog extends AbstractDialog<ExpertSettingsDialog.Set
         callbackUrl = new TextInput(Psd2Config.getCallbackUrl());
         callbackUrl.setName("HTTPS-Callback-URI");
         debugExport = new CheckboxInput(Psd2Config.isTransactionDebugExportEnabled());
-        debugExport.setName("Transaktionen nach Abruf speichern");
+        debugExport.setName("Transaktionen und Bestände nach Abruf speichern");
     }
 
     @Override
@@ -46,12 +46,14 @@ final class ExpertSettingsDialog extends AbstractDialog<ExpertSettingsDialog.Set
                         + "Host, Port und Pfad steuern den lokalen HTTPS-Callback-Server.",
                 true);
         container.addInput(callbackUrl);
+        container.addSeparator();
 
         container.addText(
                 "Die JSON-Dateien enthalten sensible Kontodaten und werden unverschluesselt gespeichert. "
                         + "Aktivieren Sie diese Funktion nur voruebergehend zur Fehlersuche.",
                 true);
         container.addInput(debugExport);
+        container.addSeparator();
 
         container.addText(
                 "Das lokale HTTPS-Zertifikat muss normalerweise nicht erneuert werden. Nach einer Erneuerung "
@@ -76,7 +78,7 @@ final class ExpertSettingsDialog extends AbstractDialog<ExpertSettingsDialog.Set
                 }
                 catch (Exception e)
                 {
-                    throw new ApplicationException("Callback-URI ungueltig: " + e.getMessage());
+                    throw new ApplicationException("Callback-URI ungueltig: " + e.getMessage(), e);
                 }
             }
         }, null, true, "ok.png");

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project basedir=".." default="zip" name="hibiscus.ly.PSD2">
+  <property file="build/build.properties" />
+
+  <target name="init">
+    <buildnumber file="${basedir}/build/BUILD" />
+    <xmlproperty file="plugin.xml" collapseattributes="true" />
+    <property name="release.dir" value="releases/${plugin.version}-${build.number}" />
+    <echo message="VERSION: ${plugin.version}" />
+    <echo message="BUILD  : ${build.number}" />
+  </target>
+
+  <path id="compile.path">
+    <pathelement location="${jameica.dir}/bin" />
+    <pathelement location="${hibiscus.dir}/bin" />
+    <fileset dir="${jameica.dir}/lib">
+      <include name="swt/**/*.jar" />
+      <include name="bouncycastle/*.jar" />
+      <include name="de_willuhn_ds/*.jar" />
+      <include name="de_willuhn_util/*.jar" />
+      <include name="java_ee/javax.annotation-api-*.jar" />
+    </fileset>
+    <fileset dir="${hibiscus.dir}/lib">
+      <include name="jackson/*.jar" />
+      <include name="javax.annotation.jar" />
+    </fileset>
+  </path>
+
+  <target name="clean">
+    <delete dir="${build.dir}" />
+    <delete dir="${dist.dir}" />
+  </target>
+
+  <target name="compile">
+    <mkdir dir="${classes.dir}" />
+    <javac srcdir="${src.dir}" destdir="${classes.dir}" release="${define.java.version}"
+           encoding="${define.encoding}" debug="true"
+           includeantruntime="false">
+      <classpath refid="compile.path" />
+    </javac>
+  </target>
+
+  <target name="test" depends="compile">
+    <mkdir dir="${test.classes.dir}" />
+    <javac srcdir="${test.dir}" destdir="${test.classes.dir}" release="${define.java.version}"
+           encoding="${define.encoding}" debug="true"
+           includeantruntime="false">
+      <classpath refid="compile.path" />
+      <classpath location="${classes.dir}" />
+    </javac>
+    <java classname="de.open4me.hibiscus.psd2.CoreTests" fork="true" failonerror="true">
+      <classpath refid="compile.path" />
+      <classpath location="${classes.dir}" />
+      <classpath location="${test.classes.dir}" />
+    </java>
+  </target>
+
+  <target name="jar" depends="init,test">
+    <mkdir dir="${dist.dir}/${plugin.name}" />
+    <jar destfile="${dist.dir}/${plugin.name}/${plugin.name}.jar" basedir="${classes.dir}">
+      <manifest>
+        <attribute name="Implementation-Title" value="${plugin.name}" />
+        <attribute name="Implementation-Version" value="${plugin.version}" />
+        <attribute name="Implementation-Buildnumber" value="${build.number}" />
+      </manifest>
+      <zipfileset dir="${basedir}/img" prefix="img">
+        <include name="AppSetup.png" />
+      </zipfileset>
+    </jar>
+    <copy file="plugin.xml" todir="${dist.dir}/${plugin.name}" />
+    <copy file="LICENSE" todir="${dist.dir}/${plugin.name}" />
+    <copy file="README.md" todir="${dist.dir}/${plugin.name}" />
+  </target>
+
+  <target name="zip" depends="jar">
+    <mkdir dir="${release.dir}" />
+    <zip destfile="${release.dir}/${plugin.name}.zip"
+         basedir="${dist.dir}" includes="${plugin.name}/**" />
+    <copy file="${release.dir}/${plugin.name}.zip" todir="${dist.dir}" />
+  </target>
+</project>

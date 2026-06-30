@@ -2,10 +2,12 @@
 <plugin xmlns="http://www.willuhn.de/schema/jameica-plugin"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://www.willuhn.de/schema/jameica-plugin https://www.willuhn.de/schema/jameica-plugin-1.5.xsd"
-        name="hibiscus.ly.PSD2" version="0.1.0" class="de.open4me.hibiscus.psd2.Plugin">
+        name="hibiscus.ly.PSD2" version="0.1.6" class="de.open4me.hibiscus.psd2.Plugin">
 
-  <description>Hibiscus-Plugin fuer PSD2-Kontozugriffe ueber Enable Banking</description>
+  <description>Hibiscus-Plugin für PSD2-Kontozugriffe über Enable Banking (Beta-Version)</description>
   <license>GPL-3.0</license>
+  <url>https://www.open4me.de/hibiscus/hibiscus.ly.PSD2/hibiscus.ly.PSD2.zip</url>
+  <homepage>https://github.com/littleyoda/</homepage>
 
   <requires jameica="2.11.0+">
     <import plugin="hibiscus" version="2.11.0+" />
