@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
@@ -330,8 +331,23 @@ public class Psd2SynchronizeJob extends SynchronizeJobKontoauszug
 
     private static void importBalances(Konto konto, JsonNode response) throws Exception
     {
-        JsonNode booked = preferredBalance(response.path("balances"), "CLBD", "ITBD", "PRCD", "OTHR", "XPCD");
-        JsonNode available = preferredBalance(response.path("balances"), "ITAV", "CLAV", "FWAV", "OPAV", "XPCD");
+        String currency = konto.getWaehrung() == null ? "" : konto.getWaehrung().trim().toUpperCase(Locale.ROOT);
+        if (!currency.matches("[A-Z]{3}") || "XXX".equals(currency))
+        {
+            Logger.warn("PSD2-Saldo fuer " + konto.getLongName()
+                    + " wurde nicht importiert, weil die Hibiscus-Kontowaehrung ungueltig ist: " + currency);
+            return;
+        }
+        JsonNode booked = TransactionSupport.preferredBalance(
+                response.path("balances"), currency, "CLBD", "ITBD", "PRCD", "OTHR", "XPCD");
+        JsonNode available = TransactionSupport.preferredBalance(
+                response.path("balances"), currency, "ITAV", "CLAV", "FWAV", "OPAV", "XPCD");
+        if (booked == null && available == null)
+        {
+            Logger.warn("PSD2-Saldo fuer " + konto.getLongName()
+                    + " wurde nicht importiert, weil Enable Banking keinen Saldo in " + currency + " geliefert hat.");
+            return;
+        }
         if (booked != null)
             konto.setSaldo(booked.path("balance_amount").path("amount").asDouble());
         if (available != null)
@@ -340,15 +356,6 @@ public class Psd2SynchronizeJob extends SynchronizeJobKontoauszug
             konto.setSaldoAvailable(konto.getSaldo());
         konto.store();
         Application.getMessagingFactory().sendMessage(new SaldoMessage(konto));
-    }
-
-    private static JsonNode preferredBalance(JsonNode balances, String... types)
-    {
-        for (String type : types)
-            for (JsonNode balance : balances)
-                if (type.equals(balance.path("balance_type").asText()))
-                    return balance;
-        return null;
     }
 
     private static void importTransactions(Konto konto, String accountHash, String accountUid,

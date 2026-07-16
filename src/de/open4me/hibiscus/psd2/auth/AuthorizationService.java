@@ -3,6 +3,8 @@ package de.open4me.hibiscus.psd2.auth;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.function.BooleanSupplier;
@@ -23,7 +25,8 @@ import de.willuhn.util.ApplicationException;
 
 public class AuthorizationService
 {
-    public record AuthorizationResult(ConnectionState connection, JsonNode accounts)
+    public record AuthorizationResult(ConnectionState connection, JsonNode accounts,
+            Map<String, JsonNode> balancesByAccountHash)
     {
     }
 
@@ -34,6 +37,12 @@ public class AuthorizationService
 
     public AuthorizationResult authorize(Aspsp aspsp, String psuType, String authMethod, String existingId,
             BooleanSupplier cancelled) throws Exception
+    {
+        return authorize(aspsp, psuType, authMethod, existingId, cancelled, false);
+    }
+
+    public AuthorizationResult authorize(Aspsp aspsp, String psuType, String authMethod, String existingId,
+            BooleanSupplier cancelled, boolean includeBalances) throws Exception
     {
         SecretStore secrets = Psd2Runtime.secrets();
         EnableBankingClient client = Psd2Runtime.client();
@@ -73,8 +82,11 @@ public class AuthorizationService
                 if (!hash.isBlank() && !uid.isBlank())
                     connection.accountUids.put(hash, uid);
             }
+            Map<String, JsonNode> balancesByAccountHash = includeBalances
+                    ? loadBalances(client, session.path("accounts"), cancelled)
+                    : Map.of();
             secrets.saveConnection(connection);
-            return new AuthorizationResult(connection, session.path("accounts"));
+            return new AuthorizationResult(connection, session.path("accounts"), balancesByAccountHash);
         }
         catch (Exception failure)
         {
@@ -103,6 +115,21 @@ public class AuthorizationService
     {
         if (cancelled.getAsBoolean())
             throw new ApplicationException("Einrichtung wurde abgebrochen.");
+    }
+
+    private static Map<String, JsonNode> loadBalances(EnableBankingClient client, JsonNode accounts,
+            BooleanSupplier cancelled) throws Exception
+    {
+        Map<String, JsonNode> result = new LinkedHashMap<>();
+        for (JsonNode account : accounts)
+        {
+            checkCancelled(cancelled);
+            String hash = account.path("identification_hash").asText();
+            String uid = account.path("uid").asText();
+            if (!hash.isBlank() && !uid.isBlank())
+                result.put(hash, client.getBalances(uid));
+        }
+        return result;
     }
 
     private static void openBrowser(String url) throws ApplicationException

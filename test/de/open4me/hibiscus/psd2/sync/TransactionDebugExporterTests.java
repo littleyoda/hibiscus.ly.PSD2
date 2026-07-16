@@ -18,6 +18,7 @@ public final class TransactionDebugExporterTests
 
     public static void run() throws Exception
     {
+        testBalanceCurrencyFiltering();
         JsonNode balances = MAPPER.readTree("""
                 {"balances":[{"balance_type":"CLBD","balance_amount":{"amount":"12.34"}}]}
                 """);
@@ -33,6 +34,24 @@ public final class TransactionDebugExporterTests
         require("one".equals(document.path("transactions").path(0)
                 .path("transactions").path(0).path("entry_reference").asText()),
                 "First transaction page must be retained");
+    }
+
+    private static void testBalanceCurrencyFiltering() throws Exception
+    {
+        JsonNode balances = MAPPER.readTree("""
+                {"balances":[{
+                  "balance_type":"XPCD",
+                  "balance_amount":{"currency":"USD","amount":"0.00"}
+                },{
+                  "balance_type":"XPCD",
+                  "balance_amount":{"currency":"EUR","amount":"184.22"}
+                }]}
+                """);
+        JsonNode selected = TransactionSupport.preferredBalance(balances.path("balances"), "EUR", "XPCD");
+        require("184.22".equals(selected.path("balance_amount").path("amount").asText()),
+                "Balance selection must use Hibiscus account currency");
+        require(TransactionSupport.preferredBalance(balances.path("balances"), "CHF", "XPCD") == null,
+                "Missing account currency balance must not be selected");
     }
 
     private static void require(boolean condition, String message)

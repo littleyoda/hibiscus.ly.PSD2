@@ -66,10 +66,11 @@ public class NewConnectionAction implements Action
                 monitor.setPercentComplete(10);
                 monitor.log("Starte PSD2-Autorisierung im Systembrowser ...");
                 result = new AuthorizationService().authorize(selection.aspsp(), selection.psuType(),
-                        selection.authMethod(), null, this::isInterrupted);
+                        selection.authMethod(), null, this::isInterrupted, accountMode == AccountSetupMode.CREATE_NEW);
                 checkInterrupted();
                 monitor.setPercentComplete(75);
-                new AccountMapper().map(result.connection(), result.accounts(), accountMode);
+                new AccountMapper().map(result.connection(), result.accounts(), accountMode,
+                        result.balancesByAccountHash());
                 monitor.setPercentComplete(100);
                 UiSupport.info(accountMode == AccountSetupMode.CREATE_NEW
                         ? "PSD2-Verbindung wurde eingerichtet und neue Hibiscus-Konten wurden angelegt."

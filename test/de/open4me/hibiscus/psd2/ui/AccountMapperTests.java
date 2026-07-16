@@ -24,6 +24,8 @@ public final class AccountMapperTests
         testGermanIban();
         testForeignIbanFallback();
         testAccountFieldFallbacks();
+        testCurrencyFromBalances();
+        testCurrencySelectionOrder();
         testExistingMappingPrecedesIban();
     }
 
@@ -102,6 +104,54 @@ public final class AccountMapperTests
         require(data.iban() == null, "Missing IBAN");
         require(Integer.toUnsignedString("hash-only".hashCode()).equals(data.accountNumber()),
                 "Identification hash fallback");
+    }
+
+    private static void testCurrencyFromBalances() throws Exception
+    {
+        JsonNode remote = MAPPER.readTree("""
+                {
+                  "currency":"XXX",
+                  "identification_hash":"hash-multi",
+                  "uid":"uid-multi"
+                }
+                """);
+        JsonNode balances = MAPPER.readTree("""
+                {"balances":[{
+                  "balance_amount":{"currency":"EUR","amount":"184.22"},
+                  "balance_type":"XPCD"
+                }]}
+                """);
+        AccountMapper.NewAccountData data = AccountMapper.newAccountData(connection("Testbank"), remote, balances);
+        require("EUR".equals(data.currency()), "XXX must be resolved from balance currency");
+
+        JsonNode usdBalances = MAPPER.readTree("""
+                {"balances":[{
+                  "balance_amount":{"currency":"USD","amount":"12.00"},
+                  "balance_type":"XPCD"
+                }]}
+                """);
+        data = AccountMapper.newAccountData(connection("Testbank"), remote, usdBalances);
+        require("USD".equals(data.currency()), "Single foreign balance currency must be retained");
+    }
+
+    private static void testCurrencySelectionOrder() throws Exception
+    {
+        JsonNode balances = MAPPER.readTree("""
+                {"balances":[{
+                  "balance_amount":{"currency":"USD","amount":"100.00"},
+                  "balance_type":"XPCD"
+                },{
+                  "balance_amount":{"currency":"EUR","amount":"0.00"},
+                  "balance_type":"XPCD"
+                }]}
+                """);
+        List<AccountMapper.CurrencyOption> options = AccountMapper.currencyOptions(balances);
+        require("EUR".equals(options.get(0).currency()), "EUR must be first proposal when present");
+        require(AccountMapper.preferredCurrency(options) == options.get(0), "EUR must be preselected");
+        require(CurrencySelectionDialog.WARNING.contains("nur EUR-Konten"),
+                "Currency dialog must warn about EUR account limitation");
+        require(CurrencySelectionDialog.WARNING.contains("nur einen davon als Kontosaldo"),
+                "Currency dialog must warn about single displayed balance");
     }
 
     private static void testExistingMappingPrecedesIban() throws Exception

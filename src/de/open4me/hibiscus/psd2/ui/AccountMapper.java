@@ -1,5 +1,6 @@
 package de.open4me.hibiscus.psd2.ui;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -32,13 +33,19 @@ public class AccountMapper
 
     void map(ConnectionState connection, JsonNode authorizedAccounts, AccountSetupMode mode) throws Exception
     {
+        map(connection, authorizedAccounts, mode, Map.of());
+    }
+
+    void map(ConnectionState connection, JsonNode authorizedAccounts, AccountSetupMode mode,
+            Map<String, JsonNode> balancesByAccountHash) throws Exception
+    {
         if (GUI.getDisplay().getThread() != Thread.currentThread())
         {
             Exception[] failure = { null };
             GUI.getDisplay().syncExec(() -> {
                 try
                 {
-                    mapOnUi(connection, authorizedAccounts, mode);
+                    mapOnUi(connection, authorizedAccounts, mode, balancesByAccountHash);
                 }
                 catch (Exception e)
                 {
@@ -49,17 +56,24 @@ public class AccountMapper
                 throw failure[0];
             return;
         }
-        mapOnUi(connection, authorizedAccounts, mode);
+        mapOnUi(connection, authorizedAccounts, mode, balancesByAccountHash);
     }
 
     private void mapOnUi(ConnectionState connection, JsonNode authorizedAccounts, AccountSetupMode mode)
+            throws Exception
+    {
+        mapOnUi(connection, authorizedAccounts, mode, Map.of());
+    }
+
+    private void mapOnUi(ConnectionState connection, JsonNode authorizedAccounts, AccountSetupMode mode,
+            Map<String, JsonNode> balancesByAccountHash)
             throws Exception
     {
         if (authorizedAccounts == null || !authorizedAccounts.isArray())
             throw new ApplicationException("Enable Banking hat keine gueltige Kontoliste geliefert.");
         if (mode == AccountSetupMode.CREATE_NEW)
         {
-            createAccounts(connection, authorizedAccounts);
+            createAccounts(connection, authorizedAccounts, balancesByAccountHash == null ? Map.of() : balancesByAccountHash);
             return;
         }
         List<Konto> available = loadAccounts();
@@ -164,13 +178,15 @@ public class AccountMapper
         return ibanMatches.size() == 1 ? ibanMatches.get(0) : null;
     }
 
-    private static void createAccounts(ConnectionState connection, JsonNode authorizedAccounts) throws Exception
+    private static void createAccounts(ConnectionState connection, JsonNode authorizedAccounts,
+            Map<String, JsonNode> balancesByAccountHash) throws Exception
     {
         List<NewAccountData> accountData = new ArrayList<>();
         Set<String> usedHashes = new HashSet<>();
         for (JsonNode remote : authorizedAccounts)
         {
-            NewAccountData data = newAccountData(connection, remote);
+            String hash = remote.path("identification_hash").asText();
+            NewAccountData data = newAccountData(connection, remote, balancesByAccountHash.get(hash));
             if (!usedHashes.add(data.hash()))
                 throw new ApplicationException("Enable Banking hat ein Konto mehrfach geliefert: "
                         + displayAccount(data.iban()));
@@ -200,7 +216,13 @@ public class AccountMapper
             notifyCreated(account);
     }
 
-    static NewAccountData newAccountData(ConnectionState connection, JsonNode remote) throws ApplicationException
+    static NewAccountData newAccountData(ConnectionState connection, JsonNode remote) throws Exception
+    {
+        return newAccountData(connection, remote, null);
+    }
+
+    static NewAccountData newAccountData(ConnectionState connection, JsonNode remote, JsonNode balances)
+            throws Exception
     {
         String hash = remote.path("identification_hash").asText();
         String uid = remote.path("uid").asText();
@@ -217,14 +239,92 @@ public class AccountMapper
                 remote.path("product").asText(null),
                 remote.path("name").asText(null),
                 aspspName + " PSD2"), 255);
-        String currency = remote.path("currency").asText("").trim().toUpperCase(Locale.ROOT);
-        if (!currency.matches("[A-Z]{3}"))
-            currency = "EUR";
+        String currency = resolveCurrency(remote, balances, displayAccount(iban));
         String bic = remote.path("account_servicer").path("bic_fi").asText("")
                 .replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
         if (!bic.matches("[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?"))
             bic = null;
         return new NewAccountData(accountNumber, bankCode, owner, description, currency, iban, bic, hash, uid);
+    }
+
+    static String resolveCurrency(JsonNode remote, JsonNode balances, String accountLabel) throws Exception
+    {
+        String accountCurrency = normalizeCurrency(remote.path("currency").asText(""));
+        if (isUsableCurrency(accountCurrency))
+            return accountCurrency;
+
+        List<CurrencyOption> options = currencyOptions(balances);
+        if (options.isEmpty())
+        {
+            Logger.warn("PSD2-Konto " + accountLabel + " hat keine verwertbare Waehrung geliefert. "
+                    + "Lege Hibiscus-Konto mit EUR an.");
+            return "EUR";
+        }
+        if (options.size() == 1)
+            return options.get(0).currency();
+
+        CurrencyOption selected = SelectionSupport.chooseCurrency(accountLabel, options, preferredCurrency(options));
+        if (selected == null)
+            throw new ApplicationException("Waehrungsauswahl wurde abgebrochen.");
+        return selected.currency();
+    }
+
+    static List<CurrencyOption> currencyOptions(JsonNode balances)
+    {
+        Map<String, BigDecimal> currencies = new LinkedHashMap<>();
+        for (JsonNode balance : balances == null ? List.<JsonNode>of() : balances.path("balances"))
+        {
+            String currency = normalizeCurrency(balance.path("balance_amount").path("currency").asText(""));
+            if (!isUsableCurrency(currency))
+                continue;
+            BigDecimal amount = amount(balance);
+            currencies.merge(currency, amount.abs(), BigDecimal::add);
+        }
+        List<CurrencyOption> options = currencies.entrySet().stream()
+                .map(entry -> new CurrencyOption(entry.getKey(), entry.getValue()))
+                .sorted((left, right) -> {
+                    if ("EUR".equals(left.currency()) && !"EUR".equals(right.currency()))
+                        return -1;
+                    if (!"EUR".equals(left.currency()) && "EUR".equals(right.currency()))
+                        return 1;
+                    int amount = right.absoluteAmount().compareTo(left.absoluteAmount());
+                    return amount != 0 ? amount : left.currency().compareTo(right.currency());
+                })
+                .toList();
+        List<CurrencyOption> nonZero = options.stream()
+                .filter(option -> option.absoluteAmount().compareTo(BigDecimal.ZERO) > 0)
+                .toList();
+        return nonZero.isEmpty() ? options : options;
+    }
+
+    static CurrencyOption preferredCurrency(List<CurrencyOption> options)
+    {
+        return options.stream()
+                .filter(option -> "EUR".equals(option.currency()))
+                .findFirst()
+                .orElse(options.isEmpty() ? null : options.get(0));
+    }
+
+    private static String normalizeCurrency(String currency)
+    {
+        return currency == null ? "" : currency.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static boolean isUsableCurrency(String currency)
+    {
+        return currency != null && currency.matches("[A-Z]{3}") && !"XXX".equals(currency);
+    }
+
+    private static BigDecimal amount(JsonNode balance)
+    {
+        try
+        {
+            return new BigDecimal(balance.path("balance_amount").path("amount").asText("0"));
+        }
+        catch (NumberFormatException e)
+        {
+            return BigDecimal.ZERO;
+        }
     }
 
     static String legacyAccountNumber(JsonNode remote, String iban, String hash)
@@ -426,6 +526,15 @@ public class AccountMapper
     record NewAccountData(String accountNumber, String bankCode, String owner, String description,
             String currency, String iban, String bic, String hash, String uid)
     {
+    }
+
+    record CurrencyOption(String currency, BigDecimal absoluteAmount)
+    {
+        @Override
+        public String toString()
+        {
+            return currency + " (Saldo " + absoluteAmount.toPlainString() + ")";
+        }
     }
 
     private record AccountSnapshot(Konto account, String backendClass, Map<String, String> metadata)

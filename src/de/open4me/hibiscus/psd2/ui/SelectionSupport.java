@@ -53,6 +53,12 @@ final class SelectionSupport
         return new AccountSelectionDialog(accounts, iban).open();
     }
 
+    static AccountMapper.CurrencyOption chooseCurrency(String accountLabel,
+            List<AccountMapper.CurrencyOption> options, AccountMapper.CurrencyOption preferred) throws Exception
+    {
+        return new CurrencySelectionDialog(accountLabel, options, preferred).open();
+    }
+
     static AuthMethodSelection chooseAuthMethod(Aspsp aspsp, String psuType) throws Exception
     {
         List<AuthMethod> methods = selectableAuthMethods(aspsp, psuType);

@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -92,6 +93,18 @@ public final class TransactionSupport
     {
         String continuation = page.path("continuation_key").asText(null);
         return continuation == null || continuation.isBlank() ? null : continuation;
+    }
+
+    public static JsonNode preferredBalance(JsonNode balances, String currency, String... types)
+    {
+        String normalizedCurrency = currency == null ? "" : currency.trim().toUpperCase(Locale.ROOT);
+        for (String type : types)
+            for (JsonNode balance : balances)
+                if (type.equals(balance.path("balance_type").asText())
+                        && normalizedCurrency.equals(balance.path("balance_amount").path("currency").asText("")
+                                .trim().toUpperCase(Locale.ROOT)))
+                    return balance;
+        return null;
     }
 
     public static String purpose(JsonNode transaction)
