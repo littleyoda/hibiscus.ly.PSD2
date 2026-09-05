@@ -4,7 +4,18 @@
 
 Die Freigabe eines Bankzugangs erfolgt im Systembrowser direkt über das jeweilige Kreditinstitut. Vorhandene Hibiscus-Konten können anhand ihrer IBAN zugeordnet werden; alternativ legt das Plugin für die freigegebenen Bankkonten neue Konten an.
 
-> **Hinweis:** Das Plugin befindet sich in einer Beta-Phase. Vor einem produktiven Einsatz empfiehlt sich eine aktuelle Sicherung der Hibiscus-Datenbank.
+
+Jede Bank liefert unterschiedliche Daten. 
+Details könnten über https://enablebanking.com/cp/data-insights abgerufen werden.
+
+Die meisten Banken liefern brauchbare Informationen. Einige Negativbeispiele sind jedoch:
+
+| Bank  | Anmerkungen |
+| ------------- | ------------- |
+| Trade Republic | Es wird nur der Betrag des Umsatzes geliefert. Informationen wie Verwendungszweck, Empfänger, Sender, Saldo fehlen. |
+| Paypal | Betrag und Empfänger bzw. Sender werden geliefert; kein Verwendungszweck; kein Saldo; Zahlungsweg (Guthaben, Lastschrift, Kreditkarte) nicht ersichtlich |
+
+
 
 ## Funktionsumfang
 
