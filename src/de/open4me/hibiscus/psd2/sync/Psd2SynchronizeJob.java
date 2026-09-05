@@ -380,6 +380,15 @@ public class Psd2SynchronizeJob extends SynchronizeJobKontoauszug
                     accountUid, from.toString(), continuation, request.strategy());
             if (responsePages != null)
                 responsePages.add(page.deepCopy());
+            String nextContinuation = TransactionSupport.continuationKey(page);
+            if (TransactionSupport.isRepeatedContinuationKey(continuationKeys, nextContinuation))
+            {
+                String warning = "Enable Banking hat einen Continuation-Key wiederholt. "
+                        + "Die erneut gelieferte Umsatzseite wird übersprungen.";
+                Logger.warn(warning);
+                monitor.log(warning);
+                break;
+            }
             for (JsonNode transaction : page.path("transactions"))
             {
                 String status = transaction.path("status").asText();
@@ -406,10 +415,7 @@ public class Psd2SynchronizeJob extends SynchronizeJobKontoauszug
                     Application.getMessagingFactory().sendMessage(new ImportMessage(target));
                 }
             }
-            continuation = TransactionSupport.continuationKey(page);
-            if (continuation != null && !continuationKeys.add(continuation))
-                throw new ApplicationException("Enable Banking hat einen Continuation-Key wiederholt. "
-                        + "Der Umsatzabruf wurde zum Schutz vor einer Endlosschleife abgebrochen.");
+            continuation = nextContinuation;
         }
         while (continuation != null && !continuation.isBlank());
 

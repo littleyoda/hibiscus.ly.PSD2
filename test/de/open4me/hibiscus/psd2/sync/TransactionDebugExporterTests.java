@@ -34,6 +34,24 @@ public final class TransactionDebugExporterTests
         require("one".equals(document.path("transactions").path(0)
                 .path("transactions").path(0).path("entry_reference").asText()),
                 "First transaction page must be retained");
+
+        testRepeatedContinuationKeysAreRetained(balances);
+    }
+
+    private static void testRepeatedContinuationKeysAreRetained(JsonNode balances) throws Exception
+    {
+        JsonNode firstPage = MAPPER.readTree("{\"transactions\":[],\"continuation_key\":\"repeated\"}");
+        JsonNode secondPage = MAPPER.readTree("{\"transactions\":[],\"continuation_key\":\"repeated\"}");
+
+        ObjectNode document = TransactionDebugExporter.createDocument(
+                "Girokonto", LocalDate.of(2026, 6, 29), balances,
+                List.of(firstPage, secondPage), Instant.parse("2026-06-29T10:00:00Z"));
+
+        require(document.path("transactions").size() == 2,
+                "Pages causing a repeated continuation key must be retained");
+        require("repeated".equals(document.path("transactions").path(1)
+                .path("continuation_key").asText()),
+                "Repeated continuation key must be available for diagnosis");
     }
 
     private static void testBalanceCurrencyFiltering() throws Exception

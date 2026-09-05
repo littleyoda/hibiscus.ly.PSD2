@@ -196,6 +196,11 @@ public class CoreTests
         JsonNode emptyPage = MAPPER.readTree("{\"transactions\":[],\"continuation_key\":\"next-page\"}");
         require("next-page".equals(TransactionSupport.continuationKey(emptyPage)),
                 "empty transaction page must retain continuation key");
+        java.util.Set<String> continuationKeys = new java.util.HashSet<>();
+        require(!TransactionSupport.isRepeatedContinuationKey(continuationKeys, "next-page"),
+                "first continuation key must be accepted");
+        require(TransactionSupport.isRepeatedContinuationKey(continuationKeys, "next-page"),
+                "repeated continuation key must stop page processing");
     }
 
     private static void testIbanNormalization()

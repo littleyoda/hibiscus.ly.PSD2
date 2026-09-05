@@ -15,8 +15,8 @@ import de.willuhn.jameica.gui.util.SimpleContainer;
 
 final class CurrencySelectionDialog extends AbstractDialog<AccountMapper.CurrencyOption>
 {
-    static final String WARNING = "Hibiscus unterstützt nur Konten in Euro. "
-            + "Fremdwährungen werden nicht unterstützt und können  falsch dargestellt werden. "
+    static final String WARNING = "Hibiscus unterstützt nur EUR-Konten. "
+            + "Fremdwährungen werden nicht unterstützt und können falsch dargestellt werden. "
             + "Wenn ein PSD2-Konto mehrere Salden in verschiedenen Waehrungen liefert, kann Hibiscus "
             + "nur einen davon als Kontosaldo anzeigen.";
 

@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import com.fasterxml.jackson.databind.JsonNode;
 
@@ -93,6 +94,11 @@ public final class TransactionSupport
     {
         String continuation = page.path("continuation_key").asText(null);
         return continuation == null || continuation.isBlank() ? null : continuation;
+    }
+
+    public static boolean isRepeatedContinuationKey(Set<String> seen, String continuation)
+    {
+        return continuation != null && !seen.add(continuation);
     }
 
     public static JsonNode preferredBalance(JsonNode balances, String currency, String... types)
