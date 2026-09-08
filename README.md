@@ -42,16 +42,30 @@ Welche Banken und Kontotypen verfügbar sind, hängt von Enable Banking und dem 
 
 Nach dem Neustart steht in Jameica das Menü **PSD2** zur Verfügung.
 
-Über den Menüpunkt "PEM-Datei importieren..." kann ein
-Einrichtungs-Assistent gestartet werden.
+## Enable Banking vorbereiten
 
+Vor der Einrichtung im Plugin muss eine Anwendung bei Enable Banking registriert werden:
+
+1. Unter [enablebanking.com](https://enablebanking.com/) einen Account erstellen.
+2. Im Enable-Banking-Control-Panel die Seite [Applications](https://enablebanking.com/cp/applications) öffnen.
+3. Eine neue Applikation mit folgenden Einstellungen registrieren:
+   - **Environment:** Production
+   - **Key generation:** Generate in the browser
+   - **Application name:** frei wählbar
+   - **Allowed redirect URLs:** `https://127.0.0.1:18443/callback`
+   - **Application description:** `Used by Hibiscus Plugin`
+   - **Email:** eigene E-Mail-Adresse
+   - **Privacy URL:** `https://example.com/`
+   - **Terms URL:** `https://example.com/`
+4. Die anschließend heruntergeladene PEM-Datei sicher aufbewahren. Sie wird beim Einrichten des Plugins benötigt.
+5. Danach müssen über Link Accounts alle Konten hinzugefügt werden, auf die später zugegriffen werden soll.
 
 ## Bankverbindung einrichten
 
 1. Unter **PSD2 → PEM-Datei importieren …** den privaten Anwendungsschlüssel importieren. Der vorgeschaltete Dialog verlinkt die Konto- und Application-Anlage und zeigt die erforderlichen Einstellungen.
 2. Unter **PSD2 → Neue Bankverbindung …** festlegen, ob vorhandene Hibiscus-Konten verwendet oder neue Konten angelegt werden sollen.
 3. Land, Kreditinstitut und – falls angeboten – Kontotyp und Authentifizierungsmethode auswählen.
-4. Die Autorisierung im Systembrowser abschließen.
+4. Der Systembrowser wird geöffnet. Dort ist eine Authentifizierung erforderlich. Beim Zugriff auf 127.0.0.1 erscheint möglicherweise eine Warnung des Browsers. Die Webseite muss trotz dieser Warnung aufgerufen werden.
 5. Bei vorhandenen Konten die vorgeschlagene Zuordnung prüfen. Eindeutige IBANs ordnet das Plugin automatisch zu.
 
 Das Plugin setzt den Zugangsweg der verbundenen Konten auf **PSD2 via Enable Banking**. Danach werden Salden und Umsätze über die normale Hibiscus-Synchronisierung abgerufen. Ist eine Bankfreigabe abgelaufen, startet das Plugin bei der nächsten Synchronisierung erneut die Browser-Autorisierung.
